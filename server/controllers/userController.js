@@ -16,7 +16,7 @@ const updateProfile = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user.id,
       { name, email, phone },
-      { new: true }
+      { returnDocument: 'after' }
     ).select('-password -otp');
     res.json(user);
   } catch (error) {

@@ -13,13 +13,24 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const { name, email, phone } = req.body;
+    console.log('Updating profile for user:', req.user.id);
+    console.log('Update data:', { name, email, phone });
+    
     const user = await User.findByIdAndUpdate(
       req.user.id,
-      { name, email, phone },
-      { returnDocument: 'after' }
+      { $set: { name, email, phone } },
+      { new: true, runValidators: false }
     ).select('-password -otp');
+    
+    console.log('Updated user:', user);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
     res.json(user);
   } catch (error) {
+    console.error('Profile update error:', error);
     res.status(500).json({ message: error.message });
   }
 };

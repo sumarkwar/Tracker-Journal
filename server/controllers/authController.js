@@ -2,15 +2,6 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
-const twilio = require('twilio');
-
-const getTwilioClient = () => {
-  const twilio = require('twilio');
-  return twilio(
-    process.env.TWILIO_ACCOUNT_SID,
-    process.env.TWILIO_AUTH_TOKEN
-  );
-};
 
 const generateToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
@@ -34,24 +25,18 @@ const sendEmailOTP = async (email, otp) => {
   await transporter.sendMail({
     from: process.env.EMAIL_USER,
     to: email,
-    subject: 'Your OTP - Project26',
+    subject: 'Your OTP - Tracker Journal',
     html: `
-      <h2>Password Reset OTP</h2>
-      <p>Your OTP is: <strong>${otp}</strong></p>
-      <p>This OTP expires in 10 minutes.</p>
+      <div style="font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5;">
+        <h2 style="color: #534AB7;">Tracker Journal</h2>
+        <p>Your OTP for password reset is:</p>
+        <h1 style="color: #D4537E; font-size: 36px; letter-spacing: 8px;">${otp}</h1>
+        <p>This OTP expires in <strong>10 minutes</strong>.</p>
+        <p style="color: #888;">If you did not request this, please ignore this email.</p>
+      </div>
     `
   });
 };
-
-const sendSMSOTP = async (phone, otp) => {
-  const twilioClient = getTwilioClient();
-  await twilioClient.messages.create({
-    body: `Your Project26 OTP is: ${otp}. Expires in 10 minutes.`,
-    from: process.env.TWILIO_PHONE,
-    to: phone
-  });
-};
-
 const register = async (req, res) => {
   try {
     const { name, phone, email, password } = req.body;
@@ -137,19 +122,21 @@ const sendOTP = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    if (!user.email) {
+      return res.status(400).json({ 
+        message: 'No email address found on this account. Please contact support.' 
+      });
+    }
+
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     user.otp = { code: otp, expiresAt };
     await user.save();
 
-    if (identifier.includes('@')) {
-      await sendEmailOTP(identifier, otp);
-    } else {
-      await sendSMSOTP(identifier, otp);
-    }
+    await sendEmailOTP(user.email, otp);
 
-    res.json({ message: 'OTP sent successfully' });
+    res.json({ message: 'OTP sent to your email address' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -180,7 +167,7 @@ const resetPassword = async (req, res) => {
     user.otp = undefined;
     await user.save();
 
-    res.json({ message: 'Password reset successful' });
+    res.json({ message: 'Password reset successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -39,18 +39,11 @@ const sendEmailOTP = async (email, otp) => {
 };
 const register = async (req, res) => {
   try {
-    const { name, phone, email, password } = req.body;
+    let { name, phone, email, password } = req.body;
 
-    const phoneExists = await User.findOne({ phone });
-    if (phoneExists) {
-      return res.status(400).json({ message: 'Phone number already registered' });
-    }
-
-    if (email) {
-      const emailExists = await User.findOne({ email });
-      if (emailExists) {
-        return res.status(400).json({ message: 'Email already registered' });
-      }
+    // Auto add +91 if no country code
+    if (phone && !phone.startsWith('+')) {
+      phone = '+91' + phone;
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -80,20 +73,16 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { identifier, password } = req.body;
+    let { identifier, password } = req.body;
+
+    // Auto add +91 if phone number without country code
+    if (identifier && !identifier.includes('@') && !identifier.startsWith('+')) {
+      identifier = '+91' + identifier;
+    }
 
     const user = await User.findOne({
       $or: [{ phone: identifier }, { email: identifier }]
     });
-
-    if (!user) {
-      return res.status(400).json({ message: 'User not found' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid password' });
-    }
 
     res.json({
       message: 'Login successful',
@@ -112,20 +101,11 @@ const login = async (req, res) => {
 
 const sendOTP = async (req, res) => {
   try {
-    const { identifier } = req.body;
+    let { identifier } = req.body;
 
-    const user = await User.findOne({
-      $or: [{ phone: identifier }, { email: identifier }]
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    if (!user.email) {
-      return res.status(400).json({ 
-        message: 'No email address found on this account. Please contact support.' 
-      });
+    // Auto add +91 if phone number without country code
+    if (identifier && !identifier.includes('@') && !identifier.startsWith('+')) {
+      identifier = '+91' + identifier;
     }
 
     const otp = generateOTP();

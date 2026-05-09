@@ -12,21 +12,17 @@ const getProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { name, email, phone } = req.body;
-    console.log('Updating profile for user:', req.user.id);
-    console.log('Update data:', { name, email, phone });
-    
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { $set: { name, email, phone } },
-      { new: true, runValidators: false }
-    ).select('-password -otp');
-    
-    console.log('Updated user:', user);
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    let { name, email, phone } = req.body;
+
+    // Auto add +91 if no country code
+    if (phone && !phone.startsWith('+')) {
+      phone = '+91' + phone;
     }
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (phone) updateData.phone = phone;
+    if (email) updateData.email = email;
     
     res.json(user);
   } catch (error) {

@@ -71,18 +71,49 @@ const register = async (req, res) => {
   }
 };
 
-const login = async (req, res) => {
+
+  const login = async (req, res) => {
   try {
     let { identifier, password } = req.body;
 
-    // Auto add +91 if phone number without country code
-    if (identifier && !identifier.includes('@') && !identifier.startsWith('+')) {
-      identifier = '+91' + identifier;
+    // Try to find user with multiple phone formats
+    let user = null;
+
+    if (!identifier.includes('@')) {
+      // Try all possible formats
+      const formats = [
+        identifier,
+        '+91' + identifier,
+        '+91' + identifier.replace(/^0/, ''),
+        identifier.replace(/^\+91/, ''),
+        identifier.replace(/^91/, ''),
+      ];
+
+      for (const format of formats) {
+        user = await User.findOne({ phone: format });
+        if (user) break;
+      }
+
+      // Also try email just in case
+      if (!user) {
+        user = await User.findOne({ email: identifier });
+      }
+    } else {
+      user = await User.findOne({ email: identifier });
+      if (!user) {
+        // Try phone too
+        user = await User.findOne({ phone: identifier });
+      }
     }
 
-    const user = await User.findOne({
-      $or: [{ phone: identifier }, { email: identifier }]
-    });
+    if (!user) {
+      return res.status(400).json({ message: 'User not found. Please check your number.' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid password' });
+    }
 
     res.json({
       message: 'Login successful',
@@ -95,6 +126,7 @@ const login = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ message: error.message });
   }
 };
